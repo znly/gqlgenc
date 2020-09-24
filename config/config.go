@@ -201,9 +201,10 @@ func LoadConfig(filename string) (*Config, error) {
 		Model:  cfg.Model,
 		Models: models,
 		// TODO: gqlgen must be set exec but client not used
-		Exec:       config.PackageConfig{Filename: "generated.go"},
-		Directives: map[string]config.DirectiveConfig{},
-		Sources:    sources,
+		Exec:                     config.PackageConfig{Filename: "generated.go"},
+		Directives:               map[string]config.DirectiveConfig{},
+		Sources:                  sources,
+		OmitSliceElementPointers: true,
 	}
 
 	if err := cfg.Client.Check(); err != nil {
