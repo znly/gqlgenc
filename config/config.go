@@ -233,7 +233,6 @@ func (c *Config) LoadSchema(ctx context.Context) error {
 
 		schema = s
 	}
-
 	if schema.Query == nil {
 		schema.Query = &ast.Definition{
 			Kind: ast.Object,
@@ -248,15 +247,18 @@ func (c *Config) LoadSchema(ctx context.Context) error {
 }
 
 func (c *Config) loadRemoteSchema(ctx context.Context) (*ast.Schema, error) {
-	addHeader := func(req *http.Request) {
+	addHeader := func(_ context.Context, req *http.Request) {
 		for key, value := range c.Endpoint.Headers {
 			req.Header.Set(key, value)
 		}
 	}
-	gqlclient := client.NewClient(http.DefaultClient, c.Endpoint.URL, addHeader)
+	gqlclient := client.NewClient(http.DefaultClient, c.Endpoint.URL,
+		[]client.HTTPRequestOption{addHeader},
+		nil,
+	)
 
 	var res introspection.Query
-	if err := gqlclient.Post(ctx, introspection.Introspection, &res, nil); err != nil {
+	if err := gqlclient.Post(ctx, &res, introspection.Introspection, nil, nil, nil); err != nil {
 		return nil, xerrors.Errorf("introspection query failed: %w", err)
 	}
 
