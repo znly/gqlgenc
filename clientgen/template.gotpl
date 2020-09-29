@@ -14,12 +14,17 @@
 {{ reserveImport "github.com/Yamashou/gqlgenc/graphqljson" }}
 {{ reserveImport "github.com/Yamashou/gqlgenc/client" }}
 
+//easyjson:skip
 type Client struct {
 	Client *client.Client
 }
 
-func NewClient(cli *http.Client, baseURL string, options ...client.HTTPRequestOption) *Client {
-	return &Client{Client: client.NewClient(cli, baseURL, options...)}
+func NewClient(
+    cli *http.Client, endpoint string,
+    options []client.HTTPRequestOption,
+    callbacks []client.HTTPResponseCallback,
+) *Client {
+	return &Client{Client: client.NewClient(cli, endpoint, options, callbacks)}
 }
 
 type {{ .Query.Name | go }} {{ .Query.Type | ref }}
@@ -37,18 +42,23 @@ type {{ .Mutation.Name | go }} {{ .Mutation.Type | ref }}
 {{- range $model := .Operation}}
 const {{ $model.Name|go }}Query = `{{ $model.Operation }}`
 
-func (c *Client) {{ $model.Name|go }} (ctx context.Context{{- range $arg := .Args }}, {{ $arg.Variable | goPrivate }} {{ $arg.Type | ref }} {{- end }}, httpRequestOptions ...client.HTTPRequestOption) (*{{ $model.ResponseStructName | go }}, error) {
+func (c *Client) {{ $model.Name|go }} (
+    ctx context.Context,
+    out *{{ $model.ResponseStructName | go }}{{- range $arg := .Args }},
+    {{ $arg.Variable | goPrivate }} {{ $arg.Type | ref }} {{- end }},
+    httpRequestOptions []client.HTTPRequestOption,
+    httpResponseCallbacks []client.HTTPResponseCallback,
+) error {
 	vars := map[string]interface{}{
 	{{- range $args := .VariableDefinitions}}
 		"{{ $args.Variable }}": {{ $args.Variable | goPrivate }},
 	{{- end }}
 	}
 
-    var res {{ $model.ResponseStructName | go }}
-    if err := c.Client.Post(ctx, {{ $model.Name|go }}Query, &res, vars, httpRequestOptions...); err != nil {
-        return nil, err
+    if err := c.Client.Post(ctx, out, {{ $model.Name|go }}Query, vars, httpRequestOptions, httpResponseCallbacks); err != nil {
+        return err
     }
 
-    return &res, nil
+    return nil
 }
 {{- end}}

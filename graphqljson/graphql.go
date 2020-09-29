@@ -33,6 +33,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/mailru/easyjson"
 	"golang.org/x/xerrors"
 )
 
@@ -44,7 +45,11 @@ import (
 // The implementation is created on top of the JSON tokenizer available
 // in "encoding/json".Decoder.
 func UnmarshalData(data json.RawMessage, v interface{}) error {
-	d := newDecoder(bytes.NewBuffer(data))
+	if o, ok := v.(easyjson.Unmarshaler); ok {
+		return easyjson.Unmarshal([]byte(data), o)
+	}
+
+	d := NewDecoder(bytes.NewBuffer(data))
 	if err := d.Decode(v); err != nil {
 		return xerrors.Errorf(": %w", err)
 	}

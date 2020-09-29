@@ -14,13 +14,15 @@ import (
 )
 
 // HTTPRequestOption represents the options applicable to the http client
-type HTTPRequestOption func(req *http.Request)
+type HTTPRequestOption func(ctx context.Context, req *http.Request)
+type HTTPResponseCallback func(ctx context.Context, res *http.Response)
 
 // Client is the http client wrapper
 type Client struct {
-	Client             *http.Client
-	BaseURL            string
-	HTTPRequestOptions []HTTPRequestOption
+	Client                *http.Client
+	Endpoint              string
+	HTTPRequestOptions    []HTTPRequestOption
+	HTTPResponseCallbacks []HTTPResponseCallback
 }
 
 // Request represents an outgoing GraphQL request
@@ -31,15 +33,25 @@ type Request struct {
 }
 
 // NewClient creates a new http client wrapper
-func NewClient(client *http.Client, baseURL string, options ...HTTPRequestOption) *Client {
+func NewClient(
+	client *http.Client, endpoint string,
+	options []HTTPRequestOption,
+	callbacks []HTTPResponseCallback,
+) *Client {
 	return &Client{
-		Client:             client,
-		BaseURL:            baseURL,
-		HTTPRequestOptions: options,
+		Client:                client,
+		Endpoint:              endpoint,
+		HTTPRequestOptions:    options,
+		HTTPResponseCallbacks: callbacks,
 	}
 }
 
-func (c *Client) newRequest(ctx context.Context, query string, vars map[string]interface{}, httpRequestOptions []HTTPRequestOption) (*http.Request, error) {
+func (c *Client) newRequest(
+	ctx context.Context,
+	query string, vars map[string]interface{},
+	httpRequestOptions []HTTPRequestOption,
+	httpResponseCallbacks []HTTPResponseCallback,
+) (*http.Request, error) {
 	r := &Request{
 		Query:         query,
 		Variables:     vars,
@@ -51,16 +63,16 @@ func (c *Client) newRequest(ctx context.Context, query string, vars map[string]i
 		return nil, xerrors.Errorf("encode: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL, bytes.NewBuffer(requestBody))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Endpoint, bytes.NewBuffer(requestBody))
 	if err != nil {
 		return nil, xerrors.Errorf("create request struct failed: %w", err)
 	}
 
 	for _, httpRequestOption := range c.HTTPRequestOptions {
-		httpRequestOption(req)
+		httpRequestOption(ctx, req)
 	}
 	for _, httpRequestOption := range httpRequestOptions {
-		httpRequestOption(req)
+		httpRequestOption(ctx, req)
 	}
 
 	return req, nil
@@ -105,19 +117,29 @@ func (er *ErrorResponse) Error() string {
 
 // Post sends a http POST request to the graphql endpoint with the given query then unpacks
 // the response into the given object.
-func (c *Client) Post(ctx context.Context, query string, respData interface{}, vars map[string]interface{}, httpRequestOptions ...HTTPRequestOption) error {
-	req, err := c.newRequest(ctx, query, vars, httpRequestOptions)
+func (c *Client) Post(
+	ctx context.Context,
+	respData interface{},
+	query string, vars map[string]interface{},
+	httpRequestOptions []HTTPRequestOption,
+	httpResponseCallbacks []HTTPResponseCallback,
+) error {
+	req, err := c.newRequest(ctx, query, vars, httpRequestOptions, httpResponseCallbacks)
 	if err != nil {
 		return xerrors.Errorf("don't create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json; charset=utf-8")
 	req.Header.Set("Accept", "application/json; charset=utf-8")
 
-	resp, err := c.Client.Do(req)
+	res, err := c.Client.Do(req)
 	if err != nil {
 		return xerrors.Errorf("request failed: %w", err)
 	}
-	defer resp.Body.Close()
+	defer res.Body.Close()
+
+	for _, callback := range httpResponseCallbacks {
+		callback(ctx, res)
+	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
