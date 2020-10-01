@@ -100,6 +100,9 @@ func (c *Client) Post(
 		return xerrors.Errorf("http status code: %v", res.StatusCode)
 	}
 
+	for _, httpResponseCallback := range c.HTTPResponseCallbacks {
+		httpResponseCallback(ctx, res)
+	}
 	for _, callback := range httpResponseCallbacks {
 		callback(ctx, res)
 	}
