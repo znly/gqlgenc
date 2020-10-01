@@ -200,6 +200,5 @@ func unmarshal(data []byte, res interface{}) error {
 	if err := graphqljson.UnmarshalData(resp.Data, res); err != nil {
 		return xerrors.Errorf("failed to decode data into response %s: %w", string(data), err)
 	}
-
 	return nil
 }
