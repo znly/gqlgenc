@@ -9,7 +9,7 @@ import (
 type ClientPool interface {
 	GetHost() string
 	GetClient() (*http.Client, string)
-	Refresh() error
+	Refresh(reason string) error
 }
 
 // -----------------------------------------------------------------------------
@@ -34,6 +34,6 @@ func (self *defaultClientPool) GetClient() (*http.Client, string) {
 	return self.client, self.host
 }
 
-func (self *defaultClientPool) Refresh() error {
+func (self *defaultClientPool) Refresh(_ string) error {
 	return nil
 }
