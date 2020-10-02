@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 
 	"github.com/Yamashou/gqlgenc/graphqljson"
 	"github.com/vektah/gqlparser/v2/gqlerror"
@@ -19,8 +20,7 @@ type HTTPResponseCallback func(ctx context.Context, res *http.Response)
 
 // Client is the http client wrapper
 type Client struct {
-	Client                *http.Client
-	Endpoint              string
+	ClientPool            ClientPool
 	HTTPRequestOptions    []HTTPRequestOption
 	HTTPResponseCallbacks []HTTPResponseCallback
 }
@@ -34,13 +34,12 @@ type Request struct {
 
 // NewClient creates a new http client wrapper
 func NewClient(
-	client *http.Client, endpoint string,
+	clientPool ClientPool,
 	options []HTTPRequestOption,
 	callbacks []HTTPResponseCallback,
 ) *Client {
 	return &Client{
-		Client:                client,
-		Endpoint:              endpoint,
+		ClientPool:            clientPool,
 		HTTPRequestOptions:    options,
 		HTTPResponseCallbacks: callbacks,
 	}
@@ -48,6 +47,7 @@ func NewClient(
 
 func (c *Client) newRequest(
 	ctx context.Context,
+	host, endpoint string,
 	query string, vars map[string]interface{},
 	httpRequestOptions []HTTPRequestOption,
 	httpResponseCallbacks []HTTPResponseCallback,
@@ -63,10 +63,12 @@ func (c *Client) newRequest(
 		return nil, xerrors.Errorf("encode: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Endpoint, bytes.NewBuffer(requestBody))
+	req, err := http.NewRequestWithContext(
+		ctx, http.MethodPost, endpoint, bytes.NewBuffer(requestBody))
 	if err != nil {
 		return nil, xerrors.Errorf("create request struct failed: %w", err)
 	}
+	req.Host = host
 
 	for _, httpRequestOption := range c.HTTPRequestOptions {
 		httpRequestOption(ctx, req)
@@ -124,34 +126,50 @@ func (c *Client) Post(
 	httpRequestOptions []HTTPRequestOption,
 	httpResponseCallbacks []HTTPResponseCallback,
 ) error {
-	req, err := c.newRequest(ctx, query, vars, httpRequestOptions, httpResponseCallbacks)
-	if err != nil {
-		return xerrors.Errorf("don't create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json; charset=utf-8")
-	req.Header.Set("Accept", "application/json; charset=utf-8")
+	host := c.ClientPool.GetHost()
+	endpoint := c.ClientPool.GetEndpoint()
 
-	res, err := c.Client.Do(req)
-	if err != nil {
-		return xerrors.Errorf("request failed: %w", err)
-	}
-	defer res.Body.Close()
+	for {
+		httpCl, _ := c.ClientPool.GetClient()
 
-	for _, callback := range httpResponseCallbacks {
-		callback(ctx, res)
-	}
+		req, err := c.newRequest(ctx, query, vars, httpRequestOptions, httpResponseCallbacks)
+		if err != nil {
+			return xerrors.Errorf("don't create request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json; charset=utf-8")
+		req.Header.Set("Accept", "application/json; charset=utf-8")
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return xerrors.Errorf("failed to read response body: %w", err)
-	}
+		res, err := httpCl.Do(req)
+		if err != nil {
+			if innerErr, ok := err.(*url.Error); ok {
+				if !(innerErr.Err == context.DeadlineExceeded ||
+					innerErr.Err == context.Canceled) {
+					c.ClientPool.Refresh(fmt.Sprintf("%#v (%#v)", err, innerErr.Err))
+					continue
+				}
+			}
+			return xerrors.Errorf("request failed: %w", err)
+		}
+		body, err := ioutil.ReadAll(res.Body)
+		res.Body.Close()
+		if err != nil {
+			return xerrors.Errorf("failed to read response body: %w", err)
+		}
 
-	return parseResponse(body, resp.StatusCode, respData)
+		for _, httpResponseCallback := range c.HTTPResponseCallbacks {
+			httpResponseCallback(ctx, res)
+		}
+		for _, callback := range httpResponseCallbacks {
+			callback(ctx, res)
+		}
+
+		return parseResponse(body, res.StatusCode, respData)
+	}
 }
 
 func parseResponse(body []byte, httpCode int, result interface{}) error {
 	errResponse := &ErrorResponse{}
-	isKOCode := httpCode < 200 || 299 < httpCode
+	isKOCode := httpCode/100 != 2
 	if isKOCode {
 		errResponse.NetworkError = &HTTPError{
 			Code:    httpCode,
