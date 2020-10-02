@@ -20,11 +20,11 @@ type Client struct {
 }
 
 func NewClient(
-    cli *http.Client, endpoint string,
+    clientPool client.ClientPool,
     options []client.HTTPRequestOption,
     callbacks []client.HTTPResponseCallback,
 ) *Client {
-	return &Client{Client: client.NewClient(cli, endpoint, options, callbacks)}
+	return &Client{Client: client.NewClient(clientPool, options, callbacks)}
 }
 
 type {{ .Query.Name | go }} {{ .Query.Type | ref }}

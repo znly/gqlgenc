@@ -223,7 +223,6 @@ func (c *Config) LoadSchema(ctx context.Context) error {
 		if err != nil {
 			return xerrors.Errorf("load local schema failed: %w", err)
 		}
-
 		schema = s
 	} else {
 		s, err := c.loadRemoteSchema(ctx)
