@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -81,10 +82,10 @@ func (c *Client) Post(
 	httpRequestOptions []HTTPRequestOption,
 	httpResponseCallbacks []HTTPResponseCallback,
 ) error {
-	host := c.ClientPool.GetHost()
-	httpCl, httpEndpoint := c.ClientPool.GetClient()
-
 	for {
+		host := c.ClientPool.GetHost()
+		httpCl, httpEndpoint := c.ClientPool.GetClient()
+
 		req, err := c.newRequest(ctx,
 			host, httpEndpoint,
 			query, vars,
@@ -101,7 +102,7 @@ func (c *Client) Post(
 			if innerErr, ok := err.(*url.Error); ok {
 				if !(innerErr.Err == context.DeadlineExceeded ||
 					innerErr.Err == context.Canceled) {
-					c.ClientPool.Refresh()
+					c.ClientPool.Refresh(fmt.Sprintf("%#v (%#v)", err, innerErr))
 					continue
 				}
 			}
