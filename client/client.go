@@ -5,7 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+<<<<<<< HEAD
 	"io/ioutil"
+=======
+>>>>>>> client: refresh reason tracking + fix retry loop
 	"net/http"
 	"net/url"
 
@@ -127,10 +130,15 @@ func (c *Client) Post(
 	httpResponseCallbacks []HTTPResponseCallback,
 ) error {
 	host := c.ClientPool.GetHost()
-	httpCl, httpEndpoint := c.ClientPool.GetClient()
-
+	endpoint := c.ClientPool.GetEndpoint()
 	for {
-		req, err := c.newRequest(ctx, query, vars, httpRequestOptions, httpResponseCallbacks)
+		httpCl, _ := c.ClientPool.GetClient()
+
+		req, err := c.newRequest(ctx,
+			host, httpEndpoint,
+			query, vars,
+			httpRequestOptions, httpResponseCallbacks,
+		)
 		if err != nil {
 			return xerrors.Errorf("don't create request: %w", err)
 		}
