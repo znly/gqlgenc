@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/Yamashou/gqlgenc/graphqljson"
 	"golang.org/x/xerrors"
@@ -14,8 +16,7 @@ type HTTPRequestOption func(ctx context.Context, req *http.Request)
 type HTTPResponseCallback func(ctx context.Context, res *http.Response)
 
 type Client struct {
-	Client                *http.Client
-	Endpoint              string
+	ClientPool            ClientPool
 	HTTPRequestOptions    []HTTPRequestOption
 	HTTPResponseCallbacks []HTTPResponseCallback
 }
@@ -28,13 +29,12 @@ type Request struct {
 }
 
 func NewClient(
-	client *http.Client, endpoint string,
+	clientPool ClientPool,
 	options []HTTPRequestOption,
 	callbacks []HTTPResponseCallback,
 ) *Client {
 	return &Client{
-		Client:                client,
-		Endpoint:              endpoint,
+		ClientPool:            clientPool,
 		HTTPRequestOptions:    options,
 		HTTPResponseCallbacks: callbacks,
 	}
@@ -42,6 +42,7 @@ func NewClient(
 
 func (c *Client) newRequest(
 	ctx context.Context,
+	host, endpoint string,
 	query string, vars map[string]interface{},
 	httpRequestOptions []HTTPRequestOption,
 	httpResponseCallbacks []HTTPResponseCallback,
@@ -57,10 +58,12 @@ func (c *Client) newRequest(
 		return nil, xerrors.Errorf("encode: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Endpoint, bytes.NewBuffer(requestBody))
+	req, err := http.NewRequestWithContext(
+		ctx, http.MethodPost, endpoint, bytes.NewBuffer(requestBody))
 	if err != nil {
 		return nil, xerrors.Errorf("create request struct failed: %w", err)
 	}
+	req.Host = host
 
 	for _, httpRequestOption := range c.HTTPRequestOptions {
 		httpRequestOption(ctx, req)
@@ -79,33 +82,52 @@ func (c *Client) Post(
 	httpRequestOptions []HTTPRequestOption,
 	httpResponseCallbacks []HTTPResponseCallback,
 ) error {
-	req, err := c.newRequest(ctx, query, vars, httpRequestOptions, httpResponseCallbacks)
-	if err != nil {
-		return xerrors.Errorf("don't create request: %w", err)
-	}
-	req.Header.Set("Content-Type", "application/json; charset=utf-8")
-	req.Header.Set("Accept", "application/json; charset=utf-8")
+	host := c.ClientPool.GetHost()
+	httpCl, httpEndpoint := c.ClientPool.GetClient()
 
-	res, err := c.Client.Do(req)
-	if err != nil {
-		return xerrors.Errorf("request failed: %w", err)
-	}
-	defer res.Body.Close()
+	fmt.Println(httpEndpoint)
 
-	if err := graphqljson.Unmarshal(res.Body, respData); err != nil {
-		return err
-	}
+	for {
+		req, err := c.newRequest(ctx,
+			host, httpEndpoint,
+			query, vars,
+			httpRequestOptions, httpResponseCallbacks,
+		)
+		if err != nil {
+			return xerrors.Errorf("don't create request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json; charset=utf-8")
+		req.Header.Set("Accept", "application/json; charset=utf-8")
 
-	if res.StatusCode < 200 || 299 < res.StatusCode {
-		return xerrors.Errorf("http status code: %v", res.StatusCode)
-	}
+		res, err := httpCl.Do(req)
+		if err != nil {
+			if innerErr, ok := err.(*url.Error); ok {
+				if !(innerErr.Err == context.DeadlineExceeded ||
+					innerErr.Err == context.Canceled) {
+					c.ClientPool.Refresh()
+					continue
+				}
+			}
+			return xerrors.Errorf("request failed: %w", err)
+		}
 
-	for _, httpResponseCallback := range c.HTTPResponseCallbacks {
-		httpResponseCallback(ctx, res)
-	}
-	for _, callback := range httpResponseCallbacks {
-		callback(ctx, res)
-	}
+		if err := graphqljson.Unmarshal(res.Body, respData); err != nil {
+			res.Body.Close()
+			return err
+		}
+		res.Body.Close()
 
-	return nil
+		if res.StatusCode < 200 || 299 < res.StatusCode {
+			return xerrors.Errorf("http status code: %v", res.StatusCode)
+		}
+
+		for _, httpResponseCallback := range c.HTTPResponseCallbacks {
+			httpResponseCallback(ctx, res)
+		}
+		for _, callback := range httpResponseCallbacks {
+			callback(ctx, res)
+		}
+
+		return nil
+	}
 }

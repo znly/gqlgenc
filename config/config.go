@@ -91,7 +91,8 @@ func (c *Config) LoadSchema(ctx context.Context) error {
 			req.Header.Set(key, value)
 		}
 	}
-	gqlclient := client.NewClient(http.DefaultClient, c.Endpoint.URL,
+	gqlclient := client.NewClient(
+		client.NewDefaultClientPool(c.Endpoint.URL),
 		[]client.HTTPRequestOption{addHeader},
 		nil,
 	)
