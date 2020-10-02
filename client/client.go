@@ -127,11 +127,9 @@ func (c *Client) Post(
 	httpResponseCallbacks []HTTPResponseCallback,
 ) error {
 	host := c.ClientPool.GetHost()
-	endpoint := c.ClientPool.GetEndpoint()
+	httpCl, httpEndpoint := c.ClientPool.GetClient()
 
 	for {
-		httpCl, _ := c.ClientPool.GetClient()
-
 		req, err := c.newRequest(ctx, query, vars, httpRequestOptions, httpResponseCallbacks)
 		if err != nil {
 			return xerrors.Errorf("don't create request: %w", err)
@@ -156,6 +154,10 @@ func (c *Client) Post(
 			return xerrors.Errorf("failed to read response body: %w", err)
 		}
 
+		if res.StatusCode/100 != 2 {
+			return xerrors.Errorf("http status code: %v", res.StatusCode)
+		}
+
 		for _, httpResponseCallback := range c.HTTPResponseCallbacks {
 			httpResponseCallback(ctx, res)
 		}
@@ -167,15 +169,8 @@ func (c *Client) Post(
 	}
 }
 
-func parseResponse(body []byte, httpCode int, result interface{}) error {
+func parseResponse(body []byte, result interface{}) error {
 	errResponse := &ErrorResponse{}
-	isKOCode := httpCode/100 != 2
-	if isKOCode {
-		errResponse.NetworkError = &HTTPError{
-			Code:    httpCode,
-			Message: fmt.Sprintf("Response body %s", string(body)),
-		}
-	}
 
 	// some servers return a graphql error with a non OK http code, try anyway to parse the body
 	if err := unmarshal(body, result); err != nil {
