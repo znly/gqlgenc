@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 
@@ -84,8 +83,6 @@ func (c *Client) Post(
 ) error {
 	host := c.ClientPool.GetHost()
 	httpCl, httpEndpoint := c.ClientPool.GetClient()
-
-	fmt.Println(httpEndpoint)
 
 	for {
 		req, err := c.newRequest(ctx,
