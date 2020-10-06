@@ -4,6 +4,7 @@ import (
 	"context"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -91,8 +92,17 @@ func (c *Config) LoadSchema(ctx context.Context) error {
 			req.Header.Set(key, value)
 		}
 	}
+
+	endpoint, err := url.Parse(c.Endpoint.URL)
+	if err != nil {
+		return xerrors.Errorf("load remote schema failed: %w", err)
+	}
+	httpCl, err := client.NewDefaultClientPool(endpoint)
+	if err != nil {
+		return xerrors.Errorf("load remote schema failed: %w", err)
+	}
 	gqlclient := client.NewClient(
-		client.NewDefaultClientPool(c.Endpoint.URL),
+		httpCl,
 		[]client.HTTPRequestOption{addHeader},
 		nil,
 	)

@@ -82,12 +82,14 @@ func (c *Client) Post(
 	httpRequestOptions []HTTPRequestOption,
 	httpResponseCallbacks []HTTPResponseCallback,
 ) error {
+	host := c.ClientPool.GetHost()
+	endpoint := c.ClientPool.GetEndpoint()
+
 	for {
-		host := c.ClientPool.GetHost()
-		httpCl, httpEndpoint := c.ClientPool.GetClient()
+		httpCl, _ := c.ClientPool.GetClient()
 
 		req, err := c.newRequest(ctx,
-			host, httpEndpoint,
+			host, endpoint,
 			query, vars,
 			httpRequestOptions, httpResponseCallbacks,
 		)
