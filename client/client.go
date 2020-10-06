@@ -5,10 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-<<<<<<< HEAD
 	"io/ioutil"
-=======
->>>>>>> client: refresh reason tracking + fix retry loop
 	"net/http"
 	"net/url"
 
@@ -131,11 +128,12 @@ func (c *Client) Post(
 ) error {
 	host := c.ClientPool.GetHost()
 	endpoint := c.ClientPool.GetEndpoint()
+
 	for {
 		httpCl, _ := c.ClientPool.GetClient()
 
 		req, err := c.newRequest(ctx,
-			host, httpEndpoint,
+			host, endpoint,
 			query, vars,
 			httpRequestOptions, httpResponseCallbacks,
 		)

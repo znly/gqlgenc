@@ -4,6 +4,7 @@ import (
 	"context"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -232,6 +233,7 @@ func (c *Config) LoadSchema(ctx context.Context) error {
 
 		schema = s
 	}
+
 	if schema.Query == nil {
 		schema.Query = &ast.Definition{
 			Kind: ast.Object,
@@ -251,7 +253,17 @@ func (c *Config) loadRemoteSchema(ctx context.Context) (*ast.Schema, error) {
 			req.Header.Set(key, value)
 		}
 	}
-	gqlclient := client.NewClient(http.DefaultClient, c.Endpoint.URL,
+
+	endpoint, err := url.Parse(c.Endpoint.URL)
+	if err != nil {
+		return xerrors.Errorf("load remote schema failed: %w", err)
+	}
+	httpCl, err := client.NewDefaultClientPool(endpoint)
+	if err != nil {
+		return xerrors.Errorf("load remote schema failed: %w", err)
+	}
+	gqlclient := client.NewClient(
+		httpCl,
 		[]client.HTTPRequestOption{addHeader},
 		nil,
 	)
