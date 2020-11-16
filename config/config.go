@@ -44,6 +44,7 @@ func (a StringList) Has(file string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -243,5 +244,6 @@ func (c *Config) loadLocalSchema() (*ast.Schema, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	return schema, nil
 }
