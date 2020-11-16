@@ -97,9 +97,12 @@ func LoadConfig(filename string) (*Config, error) {
 	if err := yaml.UnmarshalStrict(confContent, &cfg); err != nil {
 		return nil, xerrors.Errorf("unable to parse config: %w", err)
 	}
-	if cfg.SchemaFilename != nil && cfg.Endpoint != nil {
+
+	if len(cfg.SchemaFilename) > 0 && cfg.Endpoint != nil {
 		return nil, errors.New("'schema' and 'endpoint' both specified. Use schema to load from a local file, use endpoint to load from a remote server (using introspection)")
-	} else if cfg.SchemaFilename == nil && cfg.Endpoint == nil {
+	}
+
+	if len(cfg.SchemaFilename) == 0 && cfg.Endpoint == nil {
 		return nil, errors.New("neither 'schema' nor 'endpoint' specified. Use schema to load from a local file, use endpoint to load from a remote server (using introspection)")
 	}
 
@@ -190,12 +193,14 @@ func (c *Config) LoadSchema(ctx context.Context) error {
 		if err != nil {
 			return xerrors.Errorf("load local schema failed: %w", err)
 		}
+
 		schema = s
 	} else {
 		s, err := c.loadRemoteSchema(ctx)
 		if err != nil {
 			return xerrors.Errorf("load remote schema failed: %w", err)
 		}
+
 		schema = s
 	}
 
