@@ -256,11 +256,11 @@ func (c *Config) loadRemoteSchema(ctx context.Context) (*ast.Schema, error) {
 
 	endpoint, err := url.Parse(c.Endpoint.URL)
 	if err != nil {
-		return xerrors.Errorf("load remote schema failed: %w", err)
+		return nil, xerrors.Errorf("load remote schema failed: %w", err)
 	}
 	httpCl, err := client.NewDefaultClientPool(endpoint)
 	if err != nil {
-		return xerrors.Errorf("load remote schema failed: %w", err)
+		return nil, xerrors.Errorf("load remote schema failed: %w", err)
 	}
 	gqlclient := client.NewClient(
 		httpCl,
