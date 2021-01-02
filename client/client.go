@@ -104,7 +104,7 @@ func (c *Client) Post(
 			if innerErr, ok := err.(*url.Error); ok {
 				if !(innerErr.Err == context.DeadlineExceeded ||
 					innerErr.Err == context.Canceled) {
-					c.ClientPool.Refresh(fmt.Sprintf("%#v (%#v)", err, innerErr))
+					c.ClientPool.Refresh(fmt.Sprintf("%#v (%#v)", err, innerErr.Err))
 					continue
 				}
 			}
