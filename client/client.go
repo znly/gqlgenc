@@ -164,34 +164,18 @@ func (c *Client) Post(
 			return xerrors.Errorf("http status code: %v", res.StatusCode)
 		}
 
+		if err := unmarshal(body, respData); err != nil {
+			return err
+		}
+
 		for _, httpResponseCallback := range c.HTTPResponseCallbacks {
 			httpResponseCallback(ctx, res)
 		}
 		for _, callback := range httpResponseCallbacks {
 			callback(ctx, res)
 		}
-
-		return parseResponse(body, res.StatusCode, respData)
+		return nil
 	}
-}
-
-func parseResponse(body []byte, result interface{}) error {
-	errResponse := &ErrorResponse{}
-
-	// some servers return a graphql error with a non OK http code, try anyway to parse the body
-	if err := unmarshal(body, result); err != nil {
-		if gqlErr, ok := err.(*GqlErrorList); ok {
-			errResponse.GqlErrors = &gqlErr.Errors
-		} else if !isKOCode { // if is KO code there is already the http error, this error should not be returned
-			return err
-		}
-	}
-
-	if errResponse.HasErrors() {
-		return errResponse
-	}
-
-	return nil
 }
 
 // response is a GraphQL layer response from a handler.
@@ -206,7 +190,7 @@ func unmarshal(data []byte, res interface{}) error {
 		return xerrors.Errorf("failed to decode data %s: %w", string(data), err)
 	}
 
-	if resp.Errors != nil && len(resp.Errors) > 0 {
+	if len(resp.Errors) > 0 {
 		// try to parse standard graphql error
 		errors := &GqlErrorList{}
 		if e := json.Unmarshal(data, errors); e != nil {
