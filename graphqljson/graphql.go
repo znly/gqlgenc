@@ -49,7 +49,7 @@ func UnmarshalData(data json.RawMessage, v interface{}) error {
 		return easyjson.Unmarshal([]byte(data), o)
 	}
 
-	d := NewDecoder(bytes.NewBuffer(data))
+	d := newDecoder(bytes.NewBuffer(data))
 	if err := d.Decode(v); err != nil {
 		return xerrors.Errorf(": %w", err)
 	}
