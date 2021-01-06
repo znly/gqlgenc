@@ -66,6 +66,7 @@ type Operation struct {
 	Operation           string
 	Args                []*Argument
 	VariableDefinitions ast.VariableDefinitionList
+	Kind                ast.Operation
 }
 
 func NewOperation(operation *ast.OperationDefinition, queryDocument *ast.QueryDocument, args []*Argument, generateConfig *config.GenerateConfig) *Operation {
@@ -75,6 +76,7 @@ func NewOperation(operation *ast.OperationDefinition, queryDocument *ast.QueryDo
 		Operation:           queryString(queryDocument),
 		Args:                args,
 		VariableDefinitions: operation.VariableDefinitions,
+		Kind:                operation.Operation,
 	}
 }
 
@@ -194,6 +196,28 @@ func (s *Source) Mutation() (*Mutation, error) {
 
 	return &Mutation{
 		Name: s.schema.Mutation.Name,
+		Type: fields.StructType(),
+	}, nil
+}
+
+type Subscription struct {
+	Name string
+	Type types.Type
+}
+
+func (s *Source) Subscription() (*Subscription, error) {
+	fields, err := s.sourceGenerator.NewResponseFieldsByDefinition(s.schema.Subscription)
+	if err != nil {
+		return nil, xerrors.Errorf("failed to generate subscription type definitions : %w", err)
+	}
+
+	s.sourceGenerator.cfg.Models.Add(
+		s.schema.Subscription.Name,
+		fmt.Sprintf("%s.%s", s.sourceGenerator.client.Pkg(), templates.ToGo(s.schema.Subscription.Name)),
+	)
+
+	return &Subscription{
+		Name: s.schema.Subscription.Name,
 		Type: fields.StructType(),
 	}, nil
 }

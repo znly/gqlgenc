@@ -66,12 +66,17 @@ func (p *Plugin) MutateConfig(cfg *config.Config) error {
 		return xerrors.Errorf("generating fragment failed: %w", err)
 	}
 
+	subscription, err := source.Subscription()
+	if err != nil {
+		return xerrors.Errorf("generating subscription object: %w", err)
+	}
+
 	operationResponses, err := source.OperationResponses()
 	if err != nil {
 		return xerrors.Errorf("generating operation response failed: %w", err)
 	}
 
-	if err := RenderTemplate(cfg, query, mutation, fragments, source.Operations(queryDocuments), operationResponses, p.Client); err != nil {
+	if err := RenderTemplate(cfg, query, mutation, subscription, fragments, source.Operations(queryDocuments), operationResponses, p.Client); err != nil {
 		return xerrors.Errorf("template failed: %w", err)
 	}
 

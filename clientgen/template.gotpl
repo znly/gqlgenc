@@ -19,6 +19,11 @@ type Client struct {
 	Client *client.Client
 }
 
+//easyjson:skip
+type SubscriptionClient struct {
+    Client *client.SubscriptionClient
+}
+
 func NewClient(
     clientPool client.ClientPool,
     options []client.HTTPRequestOption,
@@ -27,9 +32,15 @@ func NewClient(
 	return &Client{Client: client.NewClient(clientPool, options, callbacks)}
 }
 
+func NewSubscriptionClient(wsURI string) *SubscriptionClient {
+    return &SubscriptionClient{Client: client.NewSubscriptionClient(wsURI)}
+}
+
 type {{ .Query.Name | go }} {{ .Query.Type | ref }}
 
 type {{ .Mutation.Name | go }} {{ .Mutation.Type | ref }}
+
+type {{ .Subscription.Name | go }} {{ .Subscription.Type | ref }}
 
 {{- range $name, $element := .Fragment }}
 	type  {{ .Name | go  }} {{ .Type | ref }}
@@ -40,25 +51,43 @@ type {{ .Mutation.Name | go }} {{ .Mutation.Type | ref }}
 {{- end }}
 
 {{- range $model := .Operation}}
-const {{ $model.Name|go }}Query = `{{ $model.Operation }}`
+    const {{ $model.Name|go }}Query = `{{ $model.Operation }}`
 
-func (c *Client) {{ $model.Name|go }} (
-    ctx context.Context,
-    out *{{ $model.ResponseStructName | go }}{{- range $arg := .Args }},
-    {{ $arg.Variable | goPrivate }} {{ $arg.Type | ref }} {{- end }},
-    httpRequestOptions []client.HTTPRequestOption,
-    httpResponseCallbacks []client.HTTPResponseCallback,
-) error {
-	vars := map[string]interface{}{
-	{{- range $args := .VariableDefinitions}}
-		"{{ $args.Variable }}": {{ $args.Variable | goPrivate }},
-	{{- end }}
-	}
+    {{ if or (eq $model.Kind "query") (eq $model.Kind "mutation") }}
+        func (c *Client) {{ $model.Name|go }} (
+            ctx context.Context,
+            out *{{ $model.ResponseStructName | go }}{{- range $arg := .Args }},
+            {{ $arg.Variable | goPrivate }} {{ $arg.Type | ref }} {{- end }},
+            httpRequestOptions []client.HTTPRequestOption,
+            httpResponseCallbacks []client.HTTPResponseCallback,
+        ) error {
+            vars := map[string]interface{}{
+            {{- range $args := .VariableDefinitions}}
+                "{{ $args.Variable }}": {{ $args.Variable | goPrivate }},
+            {{- end }}
+            }
 
-    if err := c.Client.Post(ctx, out, {{ $model.Name|go }}Query, vars, httpRequestOptions, httpResponseCallbacks); err != nil {
-        return err
-    }
+            if err := c.Client.Post(ctx, out, {{ $model.Name|go }}Query, vars, httpRequestOptions, httpResponseCallbacks); err != nil {
+                return err
+            }
 
-    return nil
-}
+            return nil
+        }
+    {{ end }}
+
+    {{ if eq $model.Kind "subscription" }}
+        func (sc *SubscriptionClient) {{ $model.Name|go }} (
+            out chan<- *{{ $model.ResponseStructName | go }}{{- range $arg := .Args }},
+            {{ $arg.Variable | goPrivate }} {{ $arg.Type | ref }} {{- end }},
+        ) (error, string) {
+            vars := map[string]interface{}{
+            {{- range $args := .VariableDefinitions}}
+                "{{ $args.Variable }}": {{ $args.Variable | goPrivate }},
+            {{- end }}
+            }
+
+            return sc.Client.Subscribe(out, {{ $model.Name|go }}Query, vars)
+        }
+
+    {{ end }}
 {{- end}}
