@@ -79,7 +79,7 @@ type {{ .Subscription.Name | go }} {{ .Subscription.Type | ref }}
         func (sc *SubscriptionClient) {{ $model.Name|go }} (
             out chan<- *{{ $model.ResponseStructName | go }}{{- range $arg := .Args }},
             {{ $arg.Variable | goPrivate }} {{ $arg.Type | ref }} {{- end }},
-        ) (error, string) {
+        ) (string, error) {
             vars := map[string]interface{}{
             {{- range $args := .VariableDefinitions}}
                 "{{ $args.Variable }}": {{ $args.Variable | goPrivate }},
