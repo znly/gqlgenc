@@ -3,7 +3,7 @@ package client
 import (
 	"encoding/json"
 
-	graphql "github.com/hasura/go-graphql-client"
+	"github.com/hasura/go-graphql-client"
 )
 
 type SubscriptionClient struct {
@@ -19,14 +19,16 @@ func NewSubscriptionClient(wsURI string) *SubscriptionClient {
 	}
 }
 
-func (sc *SubscriptionClient) Subscribe(out chan<- interface{}, query string, vars map[string]interface{}) (string, error) {
+func (sc *SubscriptionClient) Subscribe(out chan *json.RawMessage, query interface{}, vars map[string]interface{}) (string, error) {
 	subID, err := sc.cl.Subscribe(query, nil, func(msg *json.RawMessage, err error) error {
-		out <- msg
+		if msg != nil {
+			out <- msg
+		}
 		return err
 	})
 
 	// Subscriptions are lazily started
-	sc.cl.Run()
+	go sc.cl.Run()
 
 	return subID, err
 }

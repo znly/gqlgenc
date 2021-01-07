@@ -77,7 +77,7 @@ type {{ .Subscription.Name | go }} {{ .Subscription.Type | ref }}
 
     {{ if eq $model.Kind "subscription" }}
         func (sc *SubscriptionClient) {{ $model.Name|go }} (
-            out chan<- *{{ $model.ResponseStructName | go }}{{- range $arg := .Args }},
+            out chan *{{ $model.ResponseStructName | go }}{{- range $arg := .Args }},
             {{ $arg.Variable | goPrivate }} {{ $arg.Type | ref }} {{- end }},
         ) (string, error) {
             vars := map[string]interface{}{
@@ -86,8 +86,24 @@ type {{ .Subscription.Name | go }} {{ .Subscription.Type | ref }}
             {{- end }}
             }
 
-            return sc.Client.Subscribe(out, {{ $model.Name|go }}Query, vars)
+            rawMsgs := make(chan *json.RawMessage)
+            subID, err := sc.Client.Subscribe(rawMsgs, {{ $model.ResponseStructName | go }}{}, vars)
+            if err != nil {
+                return "", err
+            }
+
+            for msg := range rawMsgs {
+                obj := &{{ $model.ResponseStructName | go }}{}
+                if err := json.Unmarshal(*msg, obj); err != nil {
+                    return "", err
+                }
+
+                out <- obj
+            }
+
+            return subID, nil
         }
+        
 
     {{ end }}
 {{- end}}
