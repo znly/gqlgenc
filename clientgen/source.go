@@ -162,18 +162,24 @@ type Query struct {
 }
 
 func (s *Source) Query() (*Query, error) {
-	fields, err := s.sourceGenerator.NewResponseFieldsByDefinition(s.schema.Query)
+	astDef := s.schema.Query
+
+	if astDef == nil {
+		return nil, nil
+	}
+
+	fields, err := s.sourceGenerator.NewResponseFieldsByDefinition(astDef)
 	if err != nil {
-		return nil, xerrors.Errorf("generate failed for query struct type : %w", err)
+		return nil, xerrors.Errorf("generate failed for Query struct type : %w", err)
 	}
 
 	s.sourceGenerator.cfg.Models.Add(
-		s.schema.Query.Name,
-		fmt.Sprintf("%s.%s", s.sourceGenerator.client.Pkg(), templates.ToGo(s.schema.Query.Name)),
+		astDef.Name,
+		fmt.Sprintf("%s.%s", s.sourceGenerator.client.Pkg(), templates.ToGo(astDef.Name)),
 	)
 
 	return &Query{
-		Name: s.schema.Query.Name,
+		Name: astDef.Name,
 		Type: fields.StructType(),
 	}, nil
 }
@@ -184,18 +190,24 @@ type Mutation struct {
 }
 
 func (s *Source) Mutation() (*Mutation, error) {
-	fields, err := s.sourceGenerator.NewResponseFieldsByDefinition(s.schema.Mutation)
+	astDef := s.schema.Mutation
+
+	if astDef == nil {
+		return nil, nil
+	}
+
+	fields, err := s.sourceGenerator.NewResponseFieldsByDefinition(astDef)
 	if err != nil {
-		return nil, xerrors.Errorf("generate failed for mutation struct type : %w", err)
+		return nil, xerrors.Errorf("generate failed for Mutation struct type : %w", err)
 	}
 
 	s.sourceGenerator.cfg.Models.Add(
-		s.schema.Mutation.Name,
-		fmt.Sprintf("%s.%s", s.sourceGenerator.client.Pkg(), templates.ToGo(s.schema.Mutation.Name)),
+		astDef.Name,
+		fmt.Sprintf("%s.%s", s.sourceGenerator.client.Pkg(), templates.ToGo(astDef.Name)),
 	)
 
 	return &Mutation{
-		Name: s.schema.Mutation.Name,
+		Name: astDef.Name,
 		Type: fields.StructType(),
 	}, nil
 }
@@ -206,18 +218,24 @@ type Subscription struct {
 }
 
 func (s *Source) Subscription() (*Subscription, error) {
-	fields, err := s.sourceGenerator.NewResponseFieldsByDefinition(s.schema.Subscription)
+	astDef := s.schema.Subscription
+
+	if astDef == nil {
+		return nil, nil
+	}
+
+	fields, err := s.sourceGenerator.NewResponseFieldsByDefinition(astDef)
 	if err != nil {
-		return nil, xerrors.Errorf("failed to generate subscription type definitions : %w", err)
+		return nil, xerrors.Errorf("generate failed for Subscription struct type : %w", err)
 	}
 
 	s.sourceGenerator.cfg.Models.Add(
-		s.schema.Subscription.Name,
-		fmt.Sprintf("%s.%s", s.sourceGenerator.client.Pkg(), templates.ToGo(s.schema.Subscription.Name)),
+		astDef.Name,
+		fmt.Sprintf("%s.%s", s.sourceGenerator.client.Pkg(), templates.ToGo(astDef.Name)),
 	)
 
 	return &Subscription{
-		Name: s.schema.Subscription.Name,
+		Name: astDef.Name,
 		Type: fields.StructType(),
 	}, nil
 }

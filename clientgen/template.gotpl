@@ -36,11 +36,17 @@ func NewSubscriptionClient(wsURI string) *SubscriptionClient {
     return &SubscriptionClient{Client: client.NewSubscriptionClient(wsURI)}
 }
 
-type {{ .Query.Name | go }} {{ .Query.Type | ref }}
+{{ if eq .Query.Name "" }} 
+    type {{ .Query.Name | go }} {{ .Query.Type | ref }}
+{{ end }}
 
-type {{ .Mutation.Name | go }} {{ .Mutation.Type | ref }}
+{{ if .Mutation }} 
+    type {{ .Mutation.Name | go }} {{ .Mutation.Type | ref }} 
+{{ end }}
 
-type {{ .Subscription.Name | go }} {{ .Subscription.Type | ref }}
+{{ if .Subscription }} 
+    type {{ .Subscription.Name | go }} {{ .Subscription.Type | ref }}
+{{ end }}
 
 {{- range $name, $element := .Fragment }}
 	type  {{ .Name | go  }} {{ .Type | ref }}
