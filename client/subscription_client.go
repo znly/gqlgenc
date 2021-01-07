@@ -19,13 +19,8 @@ func NewSubscriptionClient(wsURI string) *SubscriptionClient {
 	}
 }
 
-func (sc *SubscriptionClient) Subscribe(out chan *json.RawMessage, query interface{}, vars map[string]interface{}) (string, error) {
-	subID, err := sc.cl.Subscribe(query, nil, func(msg *json.RawMessage, err error) error {
-		if msg != nil {
-			out <- msg
-		}
-		return err
-	})
+func (sc *SubscriptionClient) Subscribe(callback func(msg *json.RawMessage, err error) error, query interface{}, vars map[string]interface{}) (string, error) {
+	subID, err := sc.cl.Subscribe(query, nil, callback)
 
 	// Subscriptions are lazily started
 	go sc.cl.Run()
