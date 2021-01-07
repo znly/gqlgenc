@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/hasura/go-graphql-client"
@@ -19,7 +20,7 @@ func NewSubscriptionClient(wsURI string) *SubscriptionClient {
 	}
 }
 
-func (sc *SubscriptionClient) Subscribe(callback func(msg *json.RawMessage, err error) error, query interface{}, vars map[string]interface{}) (string, error) {
+func (sc *SubscriptionClient) Subscribe(ctx context.Context, callback func(msg *json.RawMessage, err error) error, query interface{}, vars map[string]interface{}) (string, error) {
 	subID, err := sc.cl.Subscribe(query, nil, callback)
 
 	// Subscriptions are lazily started
@@ -30,5 +31,4 @@ func (sc *SubscriptionClient) Subscribe(callback func(msg *json.RawMessage, err 
 
 func (sc *SubscriptionClient) Unsubscribe(subID string) {
 	sc.cl.Unsubscribe(subID)
-	sc.cl.Close()
 }
