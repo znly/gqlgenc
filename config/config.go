@@ -274,7 +274,7 @@ func (c *Config) loadRemoteSchema(ctx context.Context) (*ast.Schema, error) {
 	}
 
 	schema, err := validator.ValidateSchemaDocument(introspection.ParseIntrospectionQuery(res))
-	if err != nil {
+	if err.Error() != "" {
 		return nil, xerrors.Errorf("validation error: %w", err)
 	}
 

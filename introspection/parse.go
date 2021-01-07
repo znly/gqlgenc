@@ -26,10 +26,23 @@ func ParseIntrospectionQuery(query Query) *ast.SchemaDocument {
 func parseSchemaDefinition(query Query, typeMap map[string]*FullType) *ast.SchemaDefinition {
 	def := ast.SchemaDefinition{}
 
-	def.OperationTypes = append(def.OperationTypes,
-		parseOperationTypeDefinitionForQuery(typeMap[*query.Schema.QueryType.Name]),
-		parseOperationTypeDefinitionForMutation(typeMap[*query.Schema.MutationType.Name]),
-	)
+	if query.Schema.QueryType.Name != nil {
+		def.OperationTypes = append(def.OperationTypes,
+			parseOperationTypeDefinitionForQuery(typeMap[*query.Schema.QueryType.Name]),
+		)
+	}
+
+	if query.Schema.SubscriptionType != nil {
+		def.OperationTypes = append(def.OperationTypes,
+			parseOperationTypeDefinitionForQuery(typeMap[*query.Schema.SubscriptionType.Name]),
+		)
+	}
+
+	if query.Schema.MutationType != nil {
+		def.OperationTypes = append(def.OperationTypes,
+			parseOperationTypeDefinitionForQuery(typeMap[*query.Schema.MutationType.Name]),
+		)
+	}
 
 	return &def
 }
@@ -45,6 +58,14 @@ func parseOperationTypeDefinitionForQuery(fullType *FullType) *ast.OperationType
 func parseOperationTypeDefinitionForMutation(fullType *FullType) *ast.OperationTypeDefinition {
 	var op ast.OperationTypeDefinition
 	op.Operation = ast.Mutation
+	op.Type = *fullType.Name
+
+	return &op
+}
+
+func parseOperationTypeDefinitionForSubscription(fullType *FullType) *ast.OperationTypeDefinition {
+	var op ast.OperationTypeDefinition
+	op.Operation = ast.Subscription
 	op.Type = *fullType.Name
 
 	return &op
