@@ -86,19 +86,24 @@ func NewSubscriptionClient(wsURI string) *SubscriptionClient {
             out chan *{{ $model.ResponseStructName | go }}{{- range $arg := .Args }},
             {{ $arg.Variable | goPrivate }} {{ $arg.Type | ref }} {{- end }},
         ) (string, error) {
-            vars := map[string]interface{}{
-            {{- range $args := .VariableDefinitions}}
-                "{{ $args.Variable }}": {{ $args.Variable | goPrivate }},
-            {{- end }}
-            }
 
-            rawMsgs := make(chan *json.RawMessage)
-            subID, err := sc.Client.Subscribe(rawMsgs, {{ $model.ResponseStructName | go }}{}, vars)
+            vars := map[string]interface{}{}
+
+            rawCh := make(chan *json.RawMessage)
+
+            subID, err := sc.Client.Subscribe(
+                func(msg *json.RawMessage, err error) error {
+                    if msg != nil {
+                        rawCh <- msg
+                    }
+                    return err
+	            }, {{ $model.ResponseStructName | go }}{}, vars)
+
             if err != nil {
                 return "", err
             }
 
-            for msg := range rawMsgs {
+            for msg := range rawCh {
                 obj := &{{ $model.ResponseStructName | go }}{}
                 if err := json.Unmarshal(*msg, obj); err != nil {
                     return "", err
